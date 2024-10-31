@@ -17,20 +17,7 @@ import {
 import { logger } from '../config/logger'
 import { checkPassword, hashing } from '../config/hashing'
 import { reIssueAccessToken, signJWT } from '../config/jwt'
-
 import amqplib from 'amqplib'
-
-let channel: any // Declare channel at a higher scope
-
-const connectToRabbitMQ = async () => {
-  try {
-    const connection = await amqplib.connect('amqp://localhost')
-    channel = await connection.createChannel()
-    await channel.assertQueue('emailQueue', { durable: true })
-  } catch (error) {
-    console.error('Error connecting to RabbitMQ:', error)
-  }
-}
 
 // register
 export const registerUser = async (req: Request, res: Response) => {
@@ -68,11 +55,17 @@ export const registerUser = async (req: Request, res: Response) => {
     // return if success
     logger.info('Register successfully, please login')
 
-    const emailPayload = {
-      email: value.email
-    }
+    // Send message to RabbitMQ for email service to pick up
+    const connection = await amqplib.connect('amqp://localhost')
+    const channel = await connection.createChannel()
+    const queue = 'send_email_queue'
 
-    channel.sendToQueue('sendEmail', Buffer.from(JSON.stringify(emailPayload)), { persistent: true })
+    await channel.assertQueue(queue, { durable: true })
+    const message = JSON.stringify({ email: value.email, name: value.name })
+    channel.sendToQueue(queue, Buffer.from(message))
+
+    logger.info('Sent message to RabbitMQ for email sending service')
+
     return res.send({ status: 0, message: 'Registrasi berhasil silahkan login', data: null })
   } catch (error: any) {
     logger.error('ERR: auth - regist = ', error)

@@ -48,24 +48,6 @@ app.use(deserializedToken)
 
 routes(app)
 
-// Function to connect to RabbitMQ
-const connectToRabbitMQ = async () => {
-  try {
-    const connection = await amqplib.connect('amqp://localhost')
-    const channel = await connection.createChannel()
-    await channel.assertQueue('myQueue', { durable: true })
-
-    channel.consume('myQueue', (msg: any) => {
-      if (msg) {
-        console.log('Received:', msg.content.toString())
-        channel.ack(msg)
-      }
-    })
-  } catch (error) {
-    console.error('Error connecting to RabbitMQ:', error)
-  }
-}
-
 // Connect to Prisma and log the connection status
 ;(async () => {
   try {
@@ -73,7 +55,6 @@ const connectToRabbitMQ = async () => {
     logger.info('Connected to the database')
     app.listen(port, () => {
       logger.info(`Server is listening on port ${port}`)
-      connectToRabbitMQ()
     })
   } catch (error) {
     console.log(error)
